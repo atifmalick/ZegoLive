@@ -112,7 +112,7 @@ class _GoLivePageState extends State<GoLivePage> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.lightGreen,
+                backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(30),
                 ),

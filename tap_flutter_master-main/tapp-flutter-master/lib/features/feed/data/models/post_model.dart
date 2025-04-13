@@ -16,6 +16,7 @@ class PostModel extends Post {
     required List<dynamic> likes,
     required bool isStream,
     required String recordingUrl,
+    required bool isStreamLive
   }) : super(
     postId: postId,
     creator: creator,
@@ -27,6 +28,7 @@ class PostModel extends Post {
     likes: likes,
     isStream: isStream,
     recordingUrl: recordingUrl,
+    isStreamLive: isStreamLive
   );
 
   factory PostModel.fromJson(Map<String, dynamic> json,
@@ -51,6 +53,7 @@ class PostModel extends Post {
       likes: json['likes'] ?? [],
       isStream: json['isStream'] ?? false,
       recordingUrl: json['recordingUrl'] ?? '',
+      isStreamLive: json['isStreamLive'] ?? false
     );
   }
 }

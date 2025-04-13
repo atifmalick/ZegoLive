@@ -14,6 +14,7 @@ class Post extends Equatable {
   final List<dynamic> likes;
   final bool isStream;
   final String recordingUrl;
+  final bool isStreamLive;
 
 
   const Post({
@@ -27,6 +28,7 @@ class Post extends Equatable {
     required this.likes,
     required this.isStream,
     required this.recordingUrl,
+    required  this.isStreamLive,
 
   });
 
@@ -54,6 +56,7 @@ class Post extends Equatable {
       likes: likes ?? this.likes,
       isStream: isStream ?? this.isStream,
       recordingUrl: recordingUrl ?? this.recordingUrl,
+      isStreamLive: isStreamLive ?? this.isStreamLive
 
     );
   }

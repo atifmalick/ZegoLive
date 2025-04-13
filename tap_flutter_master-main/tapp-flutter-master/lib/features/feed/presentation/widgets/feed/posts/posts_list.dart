@@ -27,7 +27,6 @@ class PostsList extends StatefulWidget {
 }
 
 class _PostsListState extends State<PostsList> {
-  bool showOriginatedTime = false;
   Timer? _timer;
   Map<String, VideoPlayerController> _videoControllers = {};
 
@@ -45,11 +44,17 @@ class _PostsListState extends State<PostsList> {
   }
 
   void _startLiveStatusChecker() {
-    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
-        setState(() {});
+        setState(() {}); // Refresh UI based on time and state changes
       }
     });
+  }
+
+  bool _isWithin20Hours(int timestamp) {
+    final DateTime postDate = DateTime.fromMillisecondsSinceEpoch(timestamp ~/ 1000);
+    final Duration difference = DateTime.now().difference(postDate);
+    return difference.inHours < 24; // True if less than 20 hours old
   }
 
   @override
@@ -60,15 +65,16 @@ class _PostsListState extends State<PostsList> {
           return _buildLoadingIndicator();
         } else if (state is PostsLoadSuccess) {
           final liveStreamPosts = state.posts.where((post) {
-            return post.isStream && post.creator!.uid != widget.user.uid;
+            return post.isStream &&
+                post.creator!.uid != widget.user.uid &&
+                _isWithin20Hours(post.date);
           }).toList();
 
           final regularPosts = state.posts.where((post) => !post.isStream).toList();
 
           return Column(
             children: [
-              const SizedBox(height: 10),
-              if (liveStreamPosts.isNotEmpty)
+              if (liveStreamPosts.isNotEmpty) ...[
                 SizedBox(
                   height: 80,
                   child: ListView.builder(
@@ -77,22 +83,12 @@ class _PostsListState extends State<PostsList> {
                     itemCount: liveStreamPosts.length,
                     itemBuilder: (context, index) {
                       final post = liveStreamPosts[index];
-                      final bool isLive = post.isStream && post.isStream;
+                      final bool isStreamLive = post.isStream && (post.recordingUrl == null || post.recordingUrl!.isEmpty);
+                      final String recordingUrl = post.recordingUrl ?? "";
 
-                      // Hardcode recordingUrl for testing
-                      String recordingUrl = post.recordingUrl ?? "";
-                      if (post.postId == "67f6827c650bf1b2c993bbf4") {
-                        recordingUrl =
-                        "https://tapdn.s3.us-east-2.amazonaws.com/Z_aCfsdmzESsCqOW_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_main_VA_20250409142150496.mp4";
-                        log("Using hardcoded recordingUrl for ${post.postId}: $recordingUrl");
-                      }
-
-                      if (!isLive &&
-                          recordingUrl.isNotEmpty &&
-                          !_videoControllers.containsKey(post.postId)) {
+                      if (!isStreamLive && recordingUrl.isNotEmpty && !_videoControllers.containsKey(post.postId)) {
                         log("Initializing video for ${post.postId} with URL: $recordingUrl");
-                        _videoControllers[post.postId] =
-                        VideoPlayerController.network(recordingUrl)
+                        _videoControllers[post.postId] = VideoPlayerController.network(recordingUrl)
                           ..initialize().then((_) {
                             log("Video initialized for ${post.postId}");
                             if (mounted) setState(() {});
@@ -107,26 +103,30 @@ class _PostsListState extends State<PostsList> {
                         children: [
                           GestureDetector(
                             onTap: () {
-                              log("Tapped ${post.postId}: isLive=$isLive, recordingUrl=$recordingUrl");
-                              if (isLive && post.postId.isNotEmpty) {
+                              log("Tapped ${post.postId}: isStreamLive=$isStreamLive, recordingUrl=$recordingUrl");
+                              if (isStreamLive) {
                                 log("Navigating to live stream for ${post.postId}");
                                 _navigateToLiveStream(context, post);
-                              } else if (recordingUrl.isNotEmpty && post.postId.isNotEmpty) {
-                                log("Playing recording for ${post.postId}");
-                                _playRecording(post.copyWith(recordingUrl: recordingUrl));
+                              } else if (recordingUrl.isNotEmpty) {
+                                log("Navigating to recording playback for ${post.postId}");
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => VideoPlaybackScreen(post: post),
+                                  ),
+                                );
                               } else {
-                                log("No recording URL for ${post.postId}");
+                                log("No recording URL and not live for ${post.postId}, defaulting to live stream");
+                                _navigateToLiveStream(context, post);
                               }
                             },
                             onLongPress: () => _showPostOptions(context, post),
-                            child: _buildStreamContent(post, isLive),
+                            child: _buildStreamContent(post, isStreamLive),
                           ),
                           Padding(
                             padding: const EdgeInsets.all(4),
                             child: Text(
-                              isLive
-                                  ? "Streaming Now"
-                                  : "Originated at ${_formatDate(post.date)}",
+                              _formatDate(post.date),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: Colors.black,
@@ -140,10 +140,12 @@ class _PostsListState extends State<PostsList> {
                     },
                   ),
                 ),
+                const SizedBox(height: 5), // Reduced from 10 to 5
+              ],
               regularPosts.isNotEmpty
                   ? ListView.builder(
                 physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 100),
+                padding: const EdgeInsets.only(top: 5), // Reduced from 100 to 5
                 shrinkWrap: true,
                 itemCount: regularPosts.length,
                 itemBuilder: (context, i) {
@@ -174,17 +176,10 @@ class _PostsListState extends State<PostsList> {
     );
   }
 
-  Widget _buildStreamContent(Post post, bool isLive) {
-    // Hardcode recordingUrl for testing
-    String recordingUrl = post.recordingUrl ?? "";
-    if (post.postId == "67f6827c650bf1b2c993bbf4") {
-      recordingUrl =
-      "https://tapdn.s3.us-east-2.amazonaws.com/Z_aCfsdmzESsCqOW_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_43a804e7-1ac8-4ca6-80bf-30a7c22489c3_main_VA_20250409142150496.mp4";
-      log("Using hardcoded recordingUrl for ${post.postId}: $recordingUrl");
-    }
-
+  Widget _buildStreamContent(Post post, bool isStreamLive) {
+    final String recordingUrl = post.recordingUrl ?? "";
     if (post.postId.isNotEmpty) {
-      if (isLive) {
+      if (isStreamLive) {
         return Container(
           height: 58,
           width: 58,
@@ -200,16 +195,6 @@ class _PostsListState extends State<PostsList> {
           ),
         );
       } else if (recordingUrl.isNotEmpty) {
-        if (!_videoControllers.containsKey(post.postId)) {
-          log("Initializing video for ${post.postId} with URL: $recordingUrl");
-          _videoControllers[post.postId] = VideoPlayerController.network(recordingUrl)
-            ..initialize().then((_) {
-              log("Video initialized for ${post.postId}");
-              if (mounted) setState(() {});
-            }).catchError((error) {
-              log("Video initialization failed for ${post.postId}: $error");
-            });
-        }
         final controller = _videoControllers[post.postId];
         if (controller != null && controller.value.isInitialized) {
           return Container(
@@ -223,23 +208,20 @@ class _PostsListState extends State<PostsList> {
               child: VideoPlayer(controller),
             ),
           );
-        } else {
-          log("Controller not ready for ${post.postId}: initialized=${controller?.value.isInitialized}");
-          return _buildLiveStreamAvatar(post, false);
         }
       }
     }
     return _buildLiveStreamAvatar(post, false);
   }
 
-  Widget _buildLiveStreamAvatar(Post post, bool isLive) {
+  Widget _buildLiveStreamAvatar(Post post, bool isStreamLive) {
     return Container(
       height: 58,
       width: 58,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(
-          color: isLive ? Colors.red : Colors.grey,
+          color: isStreamLive ? Colors.red : Colors.grey,
           width: 1.5,
         ),
       ),
@@ -265,12 +247,6 @@ class _PostsListState extends State<PostsList> {
     );
   }
 
-  bool _isStreamLive(int timestamp) {
-    final DateTime postDate = DateTime.fromMillisecondsSinceEpoch(timestamp ~/ 1000);
-    final int minutesDifference = DateTime.now().difference(postDate).inMinutes;
-    return minutesDifference < 10;
-  }
-
   String _formatDate(int timestamp) {
     final DateTime date = DateTime.fromMillisecondsSinceEpoch(timestamp ~/ 1000);
     return "${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute}";
@@ -289,42 +265,6 @@ class _PostsListState extends State<PostsList> {
         ),
       ),
     );
-  }
-
-  void _playRecording(Post post) {
-    final controller = _videoControllers[post.postId];
-    if (controller != null) {
-      if (controller.value.isInitialized) {
-        log("Playing video for ${post.postId}");
-        controller.play();
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            content: AspectRatio(
-              aspectRatio: controller.value.aspectRatio,
-              child: VideoPlayer(controller),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  controller.pause();
-                  log("Paused video for ${post.postId}");
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        ).then((_) {
-          controller.pause();
-          log("Dialog closed, paused video for ${post.postId}");
-        });
-      } else {
-        log("Video not initialized for ${post.postId}");
-      }
-    } else {
-      log("Controller is null for ${post.postId}");
-    }
   }
 
   void _showPostOptions(BuildContext context, Post post) {
@@ -354,6 +294,65 @@ class _PostsListState extends State<PostsList> {
           },
         );
       },
+    );
+  }
+}
+
+class VideoPlaybackScreen extends StatefulWidget {
+  final Post post;
+
+  const VideoPlaybackScreen({Key? key, required this.post}) : super(key: key);
+
+  @override
+  _VideoPlaybackScreenState createState() => _VideoPlaybackScreenState();
+}
+
+class _VideoPlaybackScreenState extends State<VideoPlaybackScreen> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.network(widget.post.recordingUrl!)
+      ..initialize().then((_) {
+        log("Video initialized for playback: ${widget.post.postId}");
+        _controller.play();
+        setState(() {});
+      }).catchError((error) {
+        log("Failed to initialize video for playback: $error");
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Recording Playback"),
+      ),
+      body: Center(
+        child: _controller.value.isInitialized
+            ? AspectRatio(
+          aspectRatio: _controller.value.aspectRatio,
+          child: VideoPlayer(_controller),
+        )
+            : const CircularProgressIndicator(),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          setState(() {
+            _controller.value.isPlaying ? _controller.pause() : _controller.play();
+          });
+        },
+        child: Icon(
+          _controller.value.isPlaying ? Icons.pause : Icons.play_arrow,
+        ),
+      ),
     );
   }
 }

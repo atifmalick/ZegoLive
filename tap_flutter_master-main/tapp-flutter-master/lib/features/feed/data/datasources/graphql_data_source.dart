@@ -79,6 +79,7 @@ class FeedGraphqlDataSource implements IFeedGraphqlDataSource {
                 postId
                 isStream
                 isStreamLive
+                recordingUrl
                 comments(take: 1) {
                   username
                   userId

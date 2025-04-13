@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer';
+import 'package:tapp/features/home/presentation/screens/home_screen.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -133,7 +134,7 @@ class _LivePageState extends State<LivePage> with WidgetsBindingObserver {
           duration: Duration(seconds: 3),
         ),
       );
-      Navigator.of(context).pop();
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const HomeScreen(),));
     }
   }
 

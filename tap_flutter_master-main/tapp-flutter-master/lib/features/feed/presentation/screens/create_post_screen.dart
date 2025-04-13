@@ -26,6 +26,7 @@ import 'package:tapp/features/feed/presentation/widgets/create_post/photo_previe
 import 'package:tapp/features/profile/domain/entities/tapp_user.dart';
 import 'package:tapp/features/profile/presentation/cubit/profile/profile_cubit.dart';
 import 'package:tapp/features/profile/presentation/screens/streaming_page.dart';
+import 'package:uuid/uuid.dart';
 
 class CreatePostScreen extends StatefulWidget {
   const CreatePostScreen({Key? key}) : super(key: key);
@@ -44,11 +45,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     _cubit.close();
     super.dispose();
   }
+  final Uuid _uuid = Uuid();
 
   @override
   Widget build(BuildContext context) {
+
     final user =
         (context.watch<ProfileCubit>().state as ProfileLoadSuccess).tappUser;
+
 
     return BlocProvider<CreatePostCubit>(
       create: (context) => _cubit,
@@ -207,16 +211,20 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     "Location services are disabled. Please enable them in settings.");
                 return;
               }
+
+              // Generate a single UUID for both IDs
+              final liveId = _uuid.v4();
+
               if (Platform.isAndroid) {
                 Navigator.of(context).push(MaterialPageRoute(
                   builder: (context) => LivePage(
                     lat: AppCordinates.lat,
                     long: AppCordinates.long,
                     executeFunction: isLiveStreamOn ? false : true,
-                    liveStremId: user.username.toString() + "-liveStream",
+                    liveStremId: liveId, // Using the UUID
                     userId: user.uid.toString(),
                     username: user.username.toString(),
-                    liveID: user.username.toString() + "-liveStream-live",
+                    liveID: liveId, // Using the same UUID
                     isHost: true,
                   ),
                 ));
@@ -226,10 +234,10 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                     lat: AppCordinates.lat,
                     long: AppCordinates.long,
                     executeFunction: isLiveStreamOn ? false : true,
-                    liveStremId: user.username.toString() + "-liveStream",
+                    liveStremId: liveId, // Using the UUID
                     userId: user.uid.toString(),
                     username: user.username.toString(),
-                    liveID: user.username.toString() + "-liveStream-live",
+                    liveID: liveId, // Using the same UUID
                     isHost: true,
                   ),
                 ));
